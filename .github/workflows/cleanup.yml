@@ -1,0 +1,21 @@
+name: One-off cleanup (delete stray posts)
+
+on:
+  workflow_dispatch: {}   # manual trigger only, no schedule
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Delete stray posts
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+        run: python cleanup_posts.py

@@ -144,16 +144,26 @@ def main():
 
     now = datetime.datetime.now(datetime.timezone.utc)
 
-    # Group by Thread Group ("" / None = each row is its own standalone thread).
-    groups = {}
+    # Group by Thread Group first ("" / None = each row is its own standalone
+    # thread), THEN decide if the whole group is due. Only the first row
+    # (lowest "Urutan") in a group needs a "Tanggal Jadwal" - reply rows are
+    # gated by their group's date, not their own (most reply rows have no
+    # date set at all, and must NOT be treated as "always due").
+    raw_groups = {}
     for row in rows:
-        scheduled_at = get_prop_date_start(row, "Tanggal Jadwal")
+        group_key = get_prop_text(row, "Thread Group") or row["id"]
+        raw_groups.setdefault(group_key, []).append(row)
+
+    groups = {}
+    for group_key, group_rows in raw_groups.items():
+        group_rows.sort(key=lambda r: (get_prop_number(r, "Urutan") or 0))
+        root = group_rows[0]
+        scheduled_at = get_prop_date_start(root, "Tanggal Jadwal")
         if scheduled_at:
             when = datetime.datetime.fromisoformat(scheduled_at.replace("Z", "+00:00"))
             if when > now:
-                continue  # not due yet
-        group_key = get_prop_text(row, "Thread Group") or row["id"]
-        groups.setdefault(group_key, []).append(row)
+                continue  # whole group (root + replies) not due yet
+        groups[group_key] = group_rows
 
     if not groups:
         print("Ada konten 'Terjadwal' tapi belum jatuh tempo (Tanggal Jadwal di masa depan).")
